@@ -5,9 +5,11 @@ import numpy as np
 import time
 import os
 
-region = {'top': 585, 'left': 1204, 'width': 50, 'height': 180}  # 固定区域
-
+region = {'top': 585, 'left': 1204, 'width': 50, 'height': 180} 
+# 在这里修改截屏区域
 screenshot_path = "/Users/User/Desktop/screenshot.png"
+#在这里修改缓存路径
+
 
 def run_wechat():
     """
