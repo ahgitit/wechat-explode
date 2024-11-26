@@ -1,0 +1,121 @@
+import subprocess
+import mss
+import cv2
+import numpy as np
+import time
+import os
+
+region = {'top': 585, 'left': 1204, 'width': 50, 'height': 180}  # 固定区域
+
+screenshot_path = "/Users/User/Desktop/screenshot.png"
+
+def run_wechat():
+    """
+    启动微信程序
+    """
+    try:
+        subprocess.run(["open", "-a", "WeChat"], check=True)
+        print("微信启动！")
+    except subprocess.CalledProcessError as e:
+        print(f"启动微信失败: {e}")
+
+def capture_screenshot(output_path):
+    """
+    使用 macOS screencapture 命令截屏
+    :param output_path: 保存截屏的路径
+    """
+    try:
+        subprocess.run(["screencapture", "-x", output_path], check=True)
+        print(f"截图已保存至 {output_path}")
+    except subprocess.CalledProcessError as e:
+        print(f"截屏失败: {e}")
+
+def send_wechat_message(contact, message):
+    """
+    使用 AppleScript 控制 Mac 电脑上的微信发送消息
+    :param contact: 联系人的名称（昵称或备注）
+    :param message: 要发送的消息内容
+    """
+    applescript = f"""
+    tell application "WeChat"
+        activate
+    end tell
+    delay 1
+    tell application "System Events"
+        keystroke "{contact}"
+        key code 36 -- 回车键
+        delay 0.5
+        keystroke "{message}"
+        key code 36 -- 回车键
+    end tell
+    """
+    subprocess.run(["osascript", "-e", applescript])
+    print(f"消息已发送给 {contact}：{message}")
+
+def capture_fixed_region(output_path, region):
+    """
+    使用 mss 截取固定区域的屏幕内容
+    :param output_path: 保存截屏的路径
+    :param region: 截取的区域，格式为 {'top': y, 'left': x, 'width': w, 'height': h}
+    """
+    with mss.mss() as sct:
+        # 获取屏幕的指定区域
+        screenshot = sct.grab(region)
+        # 保存为图片
+        mss.tools.to_png(screenshot.rgb, screenshot.size, output=output_path)
+        print(f"截图已保存至 {output_path}")
+
+
+# 示例使用
+
+def check_blue_in_image(image_path, blue_rgb=(255, 255, 255), tolerance=10):
+    """
+    检查图片中是否包含指定的蓝色。
+
+    :param image_path: 图像文件路径
+    :param blue_rgb: 指定的蓝色RGB值，默认为纯蓝 (0, 0, 255)
+    :param tolerance: 颜色容差范围，默认为10
+    :return: 布尔值，True表示图像中包含指定的蓝色，False表示不包含
+    """
+    # 读取图像
+    image = cv2.imread(image_path)
+    if image is None:
+        raise ValueError(f"无法读取图像: {image_path}")
+
+    # 将BGR格式转换为RGB格式（OpenCV读取的是BGR）
+    image_rgb = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+
+    # 转换为NumPy数组以便处理
+    blue_lower = np.array([max(0, blue_rgb[0] - tolerance),
+                           max(0, blue_rgb[1] - tolerance),
+                           max(0, blue_rgb[2] - tolerance)])
+    blue_upper = np.array([min(255, blue_rgb[0] + tolerance),
+                           min(255, blue_rgb[1] + tolerance),
+                           min(255, blue_rgb[2] + tolerance)])
+
+    # 创建掩码以检测蓝色
+    mask = cv2.inRange(image_rgb, blue_lower, blue_upper)
+
+    # 检查是否有非零值
+    has_blue = np.any(mask > 0)
+    return has_blue
+if __name__ == "__main__":
+    start_time = time.time()
+    recipient = ""  # 替换为微信联系人
+    message = "reply to my message"
+    # capture_screenshot(screenshot_path)
+    while True:
+        run_wechat()
+        time.sleep(2)
+        capture_fixed_region(screenshot_path, region)
+        print(check_blue_in_image(screenshot_path))
+        if not check_blue_in_image(screenshot_path):
+            run_wechat()
+            send_wechat_message(recipient, message)
+            print(1);
+        else:
+            print("ta回你了")
+            end_time = time.time()
+            elapsed_time = end_time - start_time
+            print(f"回复用时: {elapsed_time:.2f} 秒")
+            os._exit(0)  # 直接终止程序，状态码为 0
